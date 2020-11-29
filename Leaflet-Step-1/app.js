@@ -1,6 +1,46 @@
+function markerSize(mag) {
+  return (mag) * 10
+};
+
+function markerColor(depth) {
+  return depth > 30 ? '#FF9F1C' :
+  depth >= 20 ? '#E71D36' :
+  depth >= 10 ? '#2EC4B6' :
+  depth >= 5 ? '#FDFFFC' :
+  depth >= 0 ? '#011627' :
+             '#5899E2';
+};
+
+var usgs = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson";
+
+//accessing earthquake data
+d3.json(usgs, function (earthquakes) {
+  geojson = L.geoJSON(earthquakes.features, {
+    onEachFeature: function (feature, layer) {
+      layer.on({
+        mouseover: highlightQuake,
+        mouseout: resetHighlight
+      }),
+        layer.bindPopup("<h2>Place: " + feature.properties.place + "</h2><hr><h3>Magnitude: " + feature.properties.mag + "<br> Depth: " + feature.geometry.coordinates[2] + "</h3>");
+    },
+    pointToLayer: function (feature, latlng) {
+      return new L.circleMarker(latlng,
+        { radius: markerSize(feature.properties.mag) }
+      );
+    },
+    style: function (feature) {
+      return {
+        color: markerColor(feature.geometry.coordinates[2])
+      }
+    }
+  }).addTo(myMap)
+});
+
+
 var myMap = L.map("map", {
   center: [41.0000, -99.1099],
-  zoom: 5
+  zoom: 4,
+  // layers: layer
 });
 
 L.tileLayer("https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}", {
@@ -12,56 +52,44 @@ L.tileLayer("https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_toke
   accessToken: API_KEY
 }).addTo(myMap);
 
-function markerSize(mag) {
-  return (mag) * 20000
+var info = L.control();
+
+function highlightQuake(quake) {
+  var layer = quake.target;
+
+  layer.setStyle({
+    weight: 2,
+    color: '#4B296B',
+    dashArray: '',
+    fillOpacity: 0.7
+  });
 };
 
-function markerColor(depth) {
-  if (depth >= 30) {
-    return "#FF9F1C";
-  }
-  if (depth >= 20) {
-    return "#E71D36";
-  }
-  if (depth >= 10) {
-    return "#2EC4B6";
-  }
-  if (depth >= 5) {
-    return "#FDFFFC";
-  }
-  if (depth <= 0) {
-    return "#011627";
-  }
-  else {
-    return "#5899E2";
-  }
-};
+	function resetHighlight(quake) {
+		geojson.resetStyle(quake.target);
+	};
 
-var usgs = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson";
 
-//accessing earthquake data
-d3.json(usgs, function(earthquakes){
-  for (var i =0; i <earthquakes.features.length; i++){
-      var locs = earthquakes.features[i];
 
-      if (locs && locs.properties && locs.properties.mag){
-          L.circle([locs.geometry.coordinates[1],locs.geometry.coordinates[0]],{
-              radius:markerSize(locs.properties.mag),
-              weight: 1,
-              fillColor: markerColor(locs.geometry.coordinates[2]),
-              fillOpacity: 0.8,
-          }).bindPopup("<h3>Location: " + locs.properties.place +"</h3> <hr> <h4>Mag: "+ locs.properties.mag+"<br>Depth: "+ locs.geometry.coordinates[2] + "<hr> Time: "+ new Date(locs.properties.time)+ "</h4>").addTo(myMap);
-      }
-  }
-});
-  // console.log(earthquakes.features[1].properties)
-  //   mags.push(earthquakes.features[i].properties.mag)
-  //   coords.push([earthquakes.features[i].geometry.coordinates[1], earthquakes.features[i].geometry.coordinates[0]])
-  //   var detail = earthquakes.features[i].properties.detail
-  //   L.circle([earthquakes.features[i].geometry.coordinates[1], earthquakes.features[i].geometry.coordinates[0]], {
-  //     fillOpacity: 0.75,
-  //     fillColor: markerColor(depth),
-  //     radius: markerSize(earthquakes.features[i].properties.mag),
-  //   }).bindPopup("<h2> " + earthquakes.features[i].properties.place + "</h2> <hr> <h3> Time " + new Date(earthquakes.features[i].properties.time) + "<hr> Magnitude: " + earthquakes.features[i].properties.mag + "<br> Depth: " + earthquakes.features[i].geometry[2] + "</h3>").addTo(myMap)
-  // }
-  // });
+var legend = L.control({ position: 'bottomright' });
+
+legend.onAdd = function (map) {
+
+  var div = L.DomUtil.create('div', 'info legend'),
+    depth = [">0", 0, 5, 10, 20, 30],
+    labels = [];
+
+		for (var i = 0; i < depth.length; i++) {
+			from = depth[i];
+			to = depth[i + 1];
+
+			labels.push(
+				'<i style="background:' + markerColor(from + 1) + '"></i> ' +
+				from + (to ? '&ndash;' + to : '+'));
+		}
+
+		div.innerHTML = labels.join('<br>');
+		return div;
+	};
+
+	legend.addTo(myMap);
